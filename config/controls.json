@@ -1,0 +1,11 @@
+{
+  "w": "walk_forward",
+  "s": "walk_backwards",
+  "a": "walk_left",
+  "d": "walk_right",
+  "arrow_up": "camera_up",
+  "arrow_down": "camera_down",
+  "arrow_left": "camera_left",
+  "arrow_right": "camera_right",
+  "escape": "exit"
+}
