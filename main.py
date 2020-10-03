@@ -5,11 +5,17 @@ import numpy as np
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import loadPrcFile
 from panda3d.core import AntialiasAttrib
+from pathlib import Path
+import pytmx
 
-from utils.lights import *
+from tiles import tiles
+from utils.lights import ambient_light, directional_light
+from utils.grid import from_hex
 
-config_dir = 'config'
-config = os.path.join(config_dir, 'config.prc')
+config_dir = Path('config')
+data_dir = Path('data')
+
+config = config_dir / 'config.prc'
 loadPrcFile(config)
 
 
@@ -17,24 +23,29 @@ class Game(ShowBase):
     def __init__(self, controls):
         super().__init__()
 
-        base.set_background_color(33/255, 46/255, 56/255)
+        self.set_background_color(33/255, 46/255, 56/255)
 
-        # load a tile
-        dirt = self.loader.load_model(os.path.join('models', 'dirt.dae'))
-        dirt.set_hpr(0, 90, 0)
-        dirt.reparent_to(self.render)
+        tile_list = tiles(self)
 
-        # load another tile
-        grass = loader.load_model(os.path.join('models', 'grass.dae'))
-        grass.set_hpr(0, 90, 0)
-        grass.set_pos(1, 0, 0)
-        grass.reparent_to(self.render)
+        def extract_tile_id(filename, flags, tileset):
+            def inner(rect, flags):
+                x, y, w, h = rect
+                return x // w + y // h * tileset.columns
+            return inner
 
-        # load another tile
-        grass = loader.load_model(os.path.join('models', 'stone_mountain.dae'))
-        grass.set_hpr(0, 90, 0)
-        grass.set_pos(.5, -np.sqrt(3)/2, 0)
-        grass.reparent_to(self.render)
+        tiled_map = pytmx.TiledMap(data_dir / "level_01.tmx", image_loader=extract_tile_id)
+
+        level = self.render.attachNewNode("level")
+        width = tiled_map.width
+        height = tiled_map.height * 3**0.5 / 2
+        level.setPos(width / 2, -height / 2, 0)
+        for layer in tiled_map:
+            for x, y, tile_id in layer.tiles():
+                tile_type = tile_list.get(tile_id)
+                if tile_type is not None:
+                    tile = level.attachNewNode("tile")
+                    tile.setPos(*from_hex(x, y), 0)
+                    tile_type.node.instanceTo(tile)
 
         # use antialiasing
         self.render.setAntialias(AntialiasAttrib.MMultisample)
@@ -89,7 +100,9 @@ class Game(ShowBase):
 if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument('--controls', '-c',
-        default=os.path.join('config', 'controls.json'))
+    parser.add_argument(
+        '--controls', '-c',
+        default=config_dir / 'controls.json',
+    )
     game = Game(**vars(parser.parse_args()))
     game.run()
