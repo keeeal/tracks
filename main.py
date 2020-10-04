@@ -5,8 +5,10 @@ from configparser import ConfigParser
 
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenImage import OnscreenImage
+
 from panda3d.core import loadPrcFile
 from panda3d.core import AntialiasAttrib
+from panda3d.core import TransparencyAttrib
 
 from pytmx import TiledMap
 
@@ -74,6 +76,14 @@ class Game(ShowBase):
         # load control scheme from file
         self.load_controls(controls)
         self.task_mgr.add(self.loop, 'loop')
+
+        # create a ui
+        tile_tray = OnscreenImage(image='data/black.png',
+            pos=(0, 0, -1.66), color=(0, 0, 0, .3), parent=self.render2d)
+        tile_tray.setTransparency(TransparencyAttrib.MAlpha)
+
+
+
 
 
     def load_controls(self, controls: str):

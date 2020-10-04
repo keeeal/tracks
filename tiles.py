@@ -132,8 +132,14 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
             ),
             Tile(
                 tile_id=15,
-                node=load_model("unit_houseLarge", rot=90),
-                height=0.2,
+                node=load_model("trackStraight"),
+                height=0.0,
+                clear=False,
+            ),
+            Tile(
+                tile_id=0,
+                node=load_model("trainLocomotive"),
+                height=0.0,
                 clear=False,
             ),
         )

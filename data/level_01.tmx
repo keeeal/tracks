@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.4" tiledversion="1.4.2" orientation="hexagonal" renderorder="right-down" width="10" height="10" tilewidth="128" tileheight="104" infinite="0" hexsidelength="52" staggeraxis="y" staggerindex="odd" nextlayerid="4" nextobjectid="1">
+<map version="1.4" tiledversion="1.4.2" orientation="hexagonal" renderorder="right-down" width="10" height="10" tilewidth="128" tileheight="104" infinite="0" hexsidelength="52" staggeraxis="y" staggerindex="odd" nextlayerid="6" nextobjectid="1">
  <tileset firstgid="1" source="tracks.tsx"/>
  <layer id="1" name="Tile Layer 1" width="10" height="10">
   <data encoding="csv">
@@ -24,6 +24,20 @@
 0,0,0,0,16,16,0,0,0,0,
 0,0,0,0,0,16,0,0,0,0,
 0,0,0,0,0,0,16,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <layer id="5" name="Tile Layer 3" width="10" height="10">
+  <data encoding="csv">
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,1,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0
