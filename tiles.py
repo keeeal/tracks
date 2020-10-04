@@ -51,6 +51,9 @@ class Track(Tile):
     removable: bool = field(compare=False)
     """Flag indicating whether the track can be moved by the player"""
 
+    beats: List[float] = field(compare=False)
+    """Timings of beats produced by this track, given in cumulative cost"""
+
 
 @dataclass(frozen=True)
 class Train(Track):
@@ -77,10 +80,16 @@ class Train(Track):
         y: int = tile_y
         node = node.getChild(0).getChild(1)
 
-        def update_position(x: int, y: int, offset: float, direction: int, current_pos: float, current_tile: Track) -> Tuple[int, int, float, int, Track]:
+        def update_position(x: int, y: int, offset: float, direction: int, old_pos: float, current_pos: float, current_tile: Track, beats: Optional[List[Beat]] = None) -> Tuple[int, int, float, int, Track, List[Beat]]:
+            if beats is None:
+                beats = []
             if current_tile is None:
-                return x, y, offset, direction, None
-            if current_pos > current_tile.path[-1][0]:
+                return x, y, offset, direction, None, beats
+            if direction > 0:
+                beats += [Beat(beat - offset, self.tile_id) for beat in current_tile.beats if beat > old_pos + offset and beat <= current_pos + offset]
+            else:
+                beats += [Beat(beat - offset, self.tile_id) for beat in current_tile.beats if current_tile.path[-1][0] - beat > old_pos + offset and current_tile.path[-1][0] - beat <= current_pos + offset]
+            if current_pos + offset > current_tile.path[-1][0]:
                 if direction > 0:
                     del_fun = current_tile.dst
                 else:
@@ -88,10 +97,10 @@ class Train(Track):
                 next_tile = get_track(*del_fun(x, y))
                 if next_tile is not None:
                     if next_tile.src == del_fun.reverse:
-                        return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], 1, current_pos - current_tile.path[-1][0], next_tile)
+                        return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], 1, old_pos, current_pos, next_tile, beats)
                     elif next_tile.dst == del_fun.reverse:
-                        return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], -1, current_pos - current_tile.path[-1][0], next_tile)
-            return x, y, offset, direction, current_tile
+                        return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], -1, old_pos, current_pos, next_tile, beats)
+            return x, y, offset, direction, current_tile, beats
 
         def update(old: float, new: float) -> List[Beat]:
             nonlocal offset, direction, x, y
@@ -99,9 +108,10 @@ class Train(Track):
                 offset = 0.5
                 x = tile_x
                 y = tile_y
-            current_pos = new * self.speed + offset
+            old_pos = old * self.speed
+            current_pos = new * self.speed
             current_tile = get_track(x, y)
-            x, y, offset, direction, current_tile = update_position(x, y, offset, direction, current_pos, current_tile)
+            x, y, offset, direction, current_tile, new_beats = update_position(x, y, offset, direction, old_pos, current_pos, current_tile)
             current_pos = new * self.speed + offset
 
             oldpos = node.getPos()
@@ -129,7 +139,7 @@ class Train(Track):
             node.setPos(hex_x - origin_x + local_x, hex_y - origin_y + local_y, oldpos.z)
             node.setHpr(0, 90, angle)
 
-            return []
+            return new_beats
 
         timeline.subscribe(update)
 
@@ -293,6 +303,7 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
                 src=left,
                 dst=right,
                 path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                beats=[0, 0.25, 0.5, 0.75],
             ),
             Train(
                 tile_id=0,
@@ -305,6 +316,7 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
                 dst=right,
                 path=[(0, (0.5, 0)), (1, (-0.5, 0))],
                 speed=1.0,
+                beats=[],
             ),
         )
     }
