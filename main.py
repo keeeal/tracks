@@ -12,7 +12,8 @@ from panda3d.core import TransparencyAttrib
 
 from pytmx import TiledMap
 
-from tiles import tiles
+from rhythm import Timeline
+from tiles import tiles, Track
 from utils.lights import ambient_light, directional_light
 from utils.grid import from_hex
 
@@ -28,6 +29,10 @@ class Game(ShowBase):
         super().__init__()
 
         self.set_background_color(33/255, 46/255, 56/255)
+
+        # set up timing system
+        self.timeline = Timeline()
+        self.last_time = 0.0
 
         tile_list = tiles(self)
 
@@ -46,13 +51,21 @@ class Game(ShowBase):
 
         z = {}
 
+        def get_track(x, y):
+            for i, layer in enumerate(tiled_map):
+                tile = tile_list.get(tiled_map.get_tile_image(x, y, i))
+                if isinstance(tile, Track):
+                    return tile
+            return None
+
         for layer in tiled_map:
             for x, y, tile_id in layer.tiles():
                 if (tile_type := tile_list.get(tile_id)) is not None:
                     tile = level.attach_new_node("tile")
                     tile.set_pos(*from_hex(x, y), z.get((x, y), 0))
                     z[(x, y)] = z.get((x, y), 0) + tile_type.height
-                    tile_type.node.instance_to(tile)
+                    tile_type.instance_to(tile)
+                    tile_type.register(tile, self.timeline, x, y, get_track)
 
         # use antialiasing
         self.render.set_antialias(AntialiasAttrib.MMultisample)
@@ -72,7 +85,6 @@ class Game(ShowBase):
             colour=(1, 1, 1, 1), direction=(-1, -2, -3))
         directional = self.render.attach_new_node(directional)
         self.render.set_light(directional)
-
         # load control scheme from file
         self.load_controls(controls)
         self.task_mgr.add(self.loop, 'loop')
@@ -81,7 +93,6 @@ class Game(ShowBase):
         tile_tray = OnscreenImage(image='data/black.png',
             pos=(0, 0, -1.66), color=(0, 0, 0, .3), parent=self.render2d)
         tile_tray.setTransparency(TransparencyAttrib.MAlpha)
-
 
 
 
@@ -109,6 +120,9 @@ class Game(ShowBase):
 
         if self.actions['exit']:
             sys.exit()
+
+        self.timeline.update(task.time - self.last_time)
+        self.last_time = task.time
 
         return task.cont
 
