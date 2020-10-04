@@ -38,7 +38,7 @@ if __name__ == '__main__':
         placeholder = base.render.attachNewNode("tile-placeholder")
         col = tile.tile_id % cols
         row = tile.tile_id // cols
-        placeholder.setPos((cols - col - 1) + 0.5, (row + 0.0625) * 2**0.5 * aspect, 0)
+        placeholder.setPos((cols - col - 1) + 0.5, 0, -((row + 1.0) * aspect - 0.5) * 2**0.5 - 0.1)
         tile.node.instanceTo(placeholder)
 
     # use antialiasing
@@ -48,8 +48,8 @@ if __name__ == '__main__':
     lens = OrthographicLens()
     lens.setFilmSize(cols, rows * aspect)
     base.camNode.setLens(lens)
-    base.camera.set_pos(cols / 2, rows * 2**0.5 / 2 + 8, 8)
-    base.camera.look_at(cols / 2, rows * 2**0.5 / 2, 0)
+    base.camera.set_pos(cols / 2, 8, -rows * 2**0.5 * aspect / 2 + 8)
+    base.camera.look_at(cols / 2, 0, -rows * 2**0.5 * aspect / 2)
 
     # TODO: How do the default camera controls work?
     base.disable_mouse()
