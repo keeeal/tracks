@@ -38,10 +38,10 @@ class Tile:
 class Track(Tile):
     """A Track object represents a tile of railway track that the train can move on"""
 
-    src: Tuple[int, int] = field(compare=False)
+    src: Callable[[int, int], Tuple[int, int]] = field(compare=False)
     """Relative coordinates of tile train enters from (or leaves to if reversed)"""
 
-    dst: Tuple[int, int] = field(compare=False)
+    dst: Callable[[int, int], Tuple[int, int]] = field(compare=False)
     """Relative coordinates of tile train leaves to (or enters from if reversed)"""
 
     path: Tuple[float, Tuple[float, float]] = field(compare=False)
@@ -81,15 +81,15 @@ class Train(Track):
                 return x, y, offset, direction, None
             if current_pos > current_tile.path[-1][0]:
                 if direction > 0:
-                    delx, dely = current_tile.dst
+                    del_fun = current_tile.dst
                 else:
-                    delx, dely = current_tile.src
-                next_tile = get_track(x + delx,  y + dely)
+                    del_fun = current_tile.src
+                next_tile = get_track(*del_fun(x, y))
                 if next_tile is not None:
-                    if next_tile.src == (-delx, -dely):
-                        return update_position(x + delx, y + dely, offset - current_tile.path[-1][0], 1, current_pos - current_tile.path[-1][0], next_tile)
-                    elif next_tile.dst == (-delx, -dely):
-                        return update_position(x + delx, y + dely, offset - current_tile.path[-1][0], -1, current_pos - current_tile.path[-1][0], next_tile)
+                    if next_tile.src == del_fun.reverse:
+                        return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], 1, current_pos - current_tile.path[-1][0], next_tile)
+                    elif next_tile.dst == del_fun.reverse:
+                        return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], -1, current_pos - current_tile.path[-1][0], next_tile)
             return x, y, offset, direction, current_tile
 
         def update(old: float, new: float) -> List[Beat]:
@@ -131,6 +131,42 @@ class Train(Track):
         timeline.subscribe(update)
 
 
+def left(x: int, y: int) -> Tuple[int, int]:
+    return x - 1, y
+
+
+def right(x: int, y: int) -> Tuple[int, int]:
+    return x + 1, y
+
+
+left.reverse = right
+right.reverse = left
+
+
+def up_left(x: int, y: int) -> Tuple[int, int]:
+    return (x - 1 if y % 2 == 0 else x), y - 1
+
+
+def down_right(x: int, y: int) -> Tuple[int, int]:
+    return (x if y % 2 == 0 else x + 1), y + 1
+
+
+up_left.reverse = down_right
+down_right.reverse = up_left
+
+
+def up_right(x: int, y: int) -> Tuple[int, int]:
+    return (x if y % 2 == 0 else x + 1), y - 1
+
+
+def down_left(x: int, y: int) -> Tuple[int, int]:
+    return (x - 1 if y % 2 == 0 else x), y + 1
+
+
+up_right.reverse = down_left
+down_left.reverse = up_right
+
+
 def tiles(base: ShowBase) -> Mapping[int, Tile]:
     """Initialises list of tiles and loads required models"""
     # TODO: consider loading this from a configuration file
@@ -138,18 +174,25 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
     model_path = Path("models")
 
     def load_model(name: str, pos: Optional[Tuple[int, int, int]] = None,
-        rot: Optional[Tuple[int, int, int]] = (0, 90, 0), parent: Optional[NodePath] = None) -> NodePath:
+        rot: Optional[int] = 0, parent: Optional[NodePath] = None) -> NodePath:
 
         node = base.loader.load_model(model_path / f'{name}.dae')
-        node.set_hpr(*rot)
+        node.set_hpr(0, 90, rot)
 
         if pos is not None:
             node.set_pos(*pos)
 
         if parent is not None:
-            node.reparent(parent)
+            node.reparentTo(parent)
 
         return node
+
+    def wrap_model(*args, parent: Optional[NodePath] = None, **kwargs):
+        dummy = NodePath('dummy')
+        load_model(*args, parent=dummy, **kwargs)
+        if parent is not None:
+            dummy.reparentTo(parent)
+        return dummy
 
     return {
         tile.tile_id: tile
@@ -244,19 +287,19 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
                 height=0.0,
                 clear=False,
                 removable=True,
-                src=(-1, 0),
-                dst=(1, 0),
+                src=left,
+                dst=right,
                 path=[(0, (0.5, 0)), (1, (-0.5, 0))],
             ),
             Train(
                 tile_id=0,
-                node=load_model("trackStraight"),
-                train=load_model("trainLocomotive", rot=(0, 0, 0)),
+                node=wrap_model("trackStraight"),
+                train=load_model("trainLocomotive"),
                 height=0.0,
                 clear=False,
                 removable=False,
-                src=(-1, 0),
-                dst=(1, 0),
+                src=left,
+                dst=right,
                 path=[(0, (0.5, 0)), (1, (-0.5, 0))],
                 speed=1.0,
             ),
