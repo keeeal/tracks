@@ -16,7 +16,7 @@ class Tile:
     """Contains models for the tile"""
 
     height: float = field(compare=False)
-    """Height of te surface of the tile for placing other models on top"""
+    """Height of the surface of the tile for placing other models on top"""
 
     clear: bool = field(compare=False)
     """If clear is true, rails and other buildings can be placed on the tile"""
@@ -29,13 +29,18 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
 
     model_path = Path("models")
 
-    def load_model(name: str, pos: Optional[Tuple[int, int, int]] = None, parent: Optional[NodePath] = None) -> NodePath:
+    def load_model(name: str, pos: Optional[Tuple[int, int, int]] = None,
+        rot: Optional[int] = 0, parent: Optional[NodePath] = None) -> NodePath:
+
         node = base.loader.load_model(model_path / f'{name}.dae')
-        node.set_hpr(0, 90, 0)
+        node.set_hpr(0, 90, rot)
+
         if pos is not None:
             node.set_pos(*pos)
+
         if parent is not None:
             node.reparent(parent)
+
         return node
 
     return {
@@ -122,6 +127,12 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
             Tile(
                 tile_id=14,
                 node=load_model("water_island"),
+                height=0.2,
+                clear=False,
+            ),
+            Tile(
+                tile_id=15,
+                node=load_model("unit_houseLarge", rot=90),
                 height=0.2,
                 clear=False,
             ),
