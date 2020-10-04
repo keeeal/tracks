@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from direct.showbase import ShowBase
+import numpy as np
 from panda3d.core import NodePath
 from pathlib import Path
 from typing import Mapping, Optional, Tuple, List, Callable
@@ -114,6 +115,7 @@ class Train(Track):
             prev_cost, (prev_x, prev_y) = next(path)
             for cost, (node_x, node_y) in path:
                 cost = dir_offset + direction * cost
+                angle = np.degrees(np.arctan2(prev_y - node_y, prev_x - node_x))
                 if current_pos < cost:
                     frac = (current_pos - prev_cost) / (cost - prev_cost)
                     local_x = prev_x + (node_x - prev_x) * frac
@@ -125,6 +127,7 @@ class Train(Track):
             hex_x, hex_y = from_hex(x, y)
             origin_x, origin_y = from_hex(tile_x, tile_y)
             node.setPos(hex_x - origin_x + local_x, hex_y - origin_y + local_y, oldpos.z)
+            node.setHpr(0, 90, angle)
 
             return []
 
