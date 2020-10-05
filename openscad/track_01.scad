@@ -42,10 +42,16 @@ rotate([0, 0, 30]) {
 
     // beats
     translate([0, 1, 0]) rotate([0, 0, 0])
-    translate([0, -.866, .015]) cube([.1, .3, .03], true);
+    translate([0, -.866, .015]) cylinder(.1, .01, .01);//cube([.1, .3, .03], true);
     translate([0, 1, 0]) rotate([0, 0, 15])
-    translate([0, -.866, .015]) cube([.1, .3, .03], true);
+    translate([0, -.866, .015]) cylinder(.1, .01, .01);//cube([.1, .3, .03], true);
     translate([0, 1, 0]) rotate([0, 0,-15])
-    translate([0, -.866, .015]) cube([.1, .3, .03], true);
+    translate([0, -.866, .015]) cylinder(.1, .01, .01);//cube([.1, .3, .03], true);
 
 }
+
+#translate([-.5, 0, 0]) cylinder(.1, .01, .01);
+#translate([-.276, .029, 0]) cylinder(.1, .01, .01);
+#translate([-.067, .116, 0]) cylinder(.1, .01, .01);
+#translate([.112, .253, 0]) cylinder(.1, .01, .01);
+#translate([.25, .433, 0]) cylinder(.1, .01, .01);

@@ -1,9 +1,10 @@
-from dataclasses import dataclass, field
-from direct.showbase import ShowBase
-import numpy as np
-from panda3d.core import NodePath
 from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Mapping, Optional, Tuple, List, Callable
+
+import numpy as np
+from direct.showbase import ShowBase
+from panda3d.core import NodePath
 
 from rhythm import Timeline, Beat
 from utils.grid import from_hex
@@ -484,7 +485,13 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
                 removable=True,
                 src=left,
                 dst=right,
-                path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                path=[
+                    (0/4, (.5, 0)),
+                    (1/4, (.276, -.029)),
+                    (2/4, (.067, -.116)),
+                    (3/4, (-.112, -.253)),
+                    (4/4, (-.25, -.433)),
+                ],
                 beats=[0, 0.25, 0.5, 0.75],
             ),
             Train(
