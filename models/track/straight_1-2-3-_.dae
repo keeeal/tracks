@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <asset>
+    <contributor>
+      <author>Blender User</author>
+      <authoring_tool>Blender 2.82.7</authoring_tool>
+    </contributor>
+    <created>2020-10-06T03:22:57</created>
+    <modified>2020-10-06T03:22:57</modified>
+    <unit name="meter" meter="1"/>
+    <up_axis>Z_UP</up_axis>
+  </asset>
+  <library_effects>
+    <effect id="stone-effect">
+      <profile_COMMON>
+        <technique sid="common">
+          <lambert>
+            <emission>
+              <color sid="emission">0 0 0 1</color>
+            </emission>
+            <diffuse>
+              <color sid="diffuse">0.623529 0.690196 0.788235 1</color>
+            </diffuse>
+            <index_of_refraction>
+              <float sid="ior">1</float>
+            </index_of_refraction>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+    <effect id="wood-effect">
+      <profile_COMMON>
+        <technique sid="common">
+          <lambert>
+            <emission>
+              <color sid="emission">0 0 0 1</color>
+            </emission>
+            <diffuse>
+              <color sid="diffuse">0.831373 0.490196 0.282353 1</color>
+            </diffuse>
+            <index_of_refraction>
+              <float sid="ior">1</float>
+            </index_of_refraction>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+  </library_effects>
+  <library_images/>
+  <library_materials>
+    <material id="stone-material" name="stone">
+      <instance_effect url="#stone-effect"/>
+    </material>
+    <material id="wood-material" name="wood">
+      <instance_effect url="#wood-effect"/>
+    </material>
+  </library_materials>
+  <library_geometries>
+    <geometry id="Rails_Straight-mesh" name="Rails Straight">
+      <mesh>
+        <source id="Rails_Straight-mesh-positions">
+          <float_array id="Rails_Straight-mesh-positions-array" count="48">0.105 -0.5 0.03999996 0.105 0.5 0.009999275 0.105 0.5 0.03999996 0.105 -0.5 0.009999275 0.0749998 0.5 0.03999996 0.0749998 -0.5 0.03999996 0.0749998 -0.5 0.009999275 0.0749998 0.5 0.009999275 -0.0749998 -0.5 0.03999996 -0.0749998 0.5 0.009999275 -0.0749998 0.5 0.03999996 -0.0749998 -0.5 0.009999275 -0.105 0.5 0.03999996 -0.105 -0.5 0.03999996 -0.105 -0.5 0.009999275 -0.105 0.5 0.009999275</float_array>
+          <technique_common>
+            <accessor source="#Rails_Straight-mesh-positions-array" count="16" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Rails_Straight-mesh-normals">
+          <float_array id="Rails_Straight-mesh-normals-array" count="18">1 0 0 0 0 1 0 0 -1 -1 0 0 0 1 0 0 -1 0</float_array>
+          <technique_common>
+            <accessor source="#Rails_Straight-mesh-normals-array" count="6" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <vertices id="Rails_Straight-mesh-vertices">
+          <input semantic="POSITION" source="#Rails_Straight-mesh-positions"/>
+        </vertices>
+        <triangles material="stone-material" count="24">
+          <input semantic="VERTEX" source="#Rails_Straight-mesh-vertices" offset="0"/>
+          <input semantic="NORMAL" source="#Rails_Straight-mesh-normals" offset="1"/>
+          <p>0 0 1 0 2 0 1 0 0 0 3 0 4 1 0 1 2 1 0 1 4 1 5 1 6 2 1 2 3 2 1 2 6 2 7 2 6 3 4 3 7 3 4 3 6 3 5 3 1 4 4 4 2 4 4 4 1 4 7 4 6 5 0 5 5 5 0 5 6 5 3 5 8 0 9 0 10 0 9 0 8 0 11 0 12 1 8 1 10 1 8 1 12 1 13 1 14 2 9 2 11 2 9 2 14 2 15 2 14 3 12 3 15 3 12 3 14 3 13 3 9 4 12 4 10 4 12 4 9 4 15 4 14 5 8 5 13 5 8 5 14 5 11 5</p>
+        </triangles>
+      </mesh>
+    </geometry>
+    <geometry id="Beats_Straight_01-mesh" name="Beats Straight 01">
+      <mesh>
+        <source id="Beats_Straight_01-mesh-positions">
+          <float_array id="Beats_Straight_01-mesh-positions-array" count="96">0.15 0.45 0.02999967 0.15 0.5 0 0.15 0.5 0.02999967 0.15 0.45 0 -0.15 0.5 0.02999967 -0.15 0.45 0.02999967 -0.15 0.45 0 -0.15 0.5 0 0.15 -0.5 0.02999967 0.15 -0.45 0 0.15 -0.45 0.02999967 0.15 -0.5 0 -0.15 -0.45 0.02999967 -0.15 -0.5 0.02999967 -0.15 -0.5 0 -0.15 -0.45 0 0.15 -0.299999 0.02999967 0.15 -0.2 0 0.15 -0.2 0.02999967 0.15 -0.299999 0 -0.15 -0.2 0.02999967 -0.15 -0.299999 0.02999967 -0.15 -0.299999 0 -0.15 -0.2 0 0.15 -0.04999911 0.02999967 0.15 0.04999911 0 0.15 0.04999911 0.02999967 0.15 -0.04999911 0 -0.15 0.04999911 0.02999967 -0.15 -0.04999911 0.02999967 -0.15 -0.04999911 0 -0.15 0.04999911 0</float_array>
+          <technique_common>
+            <accessor source="#Beats_Straight_01-mesh-positions-array" count="32" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Beats_Straight_01-mesh-normals">
+          <float_array id="Beats_Straight_01-mesh-normals-array" count="18">1 0 0 0 0 1 0 0 -1 -1 0 0 0 1 0 0 -1 0</float_array>
+          <technique_common>
+            <accessor source="#Beats_Straight_01-mesh-normals-array" count="6" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <vertices id="Beats_Straight_01-mesh-vertices">
+          <input semantic="POSITION" source="#Beats_Straight_01-mesh-positions"/>
+        </vertices>
+        <triangles material="wood-material" count="48">
+          <input semantic="VERTEX" source="#Beats_Straight_01-mesh-vertices" offset="0"/>
+          <input semantic="NORMAL" source="#Beats_Straight_01-mesh-normals" offset="1"/>
+          <p>0 0 1 0 2 0 1 0 0 0 3 0 4 1 0 1 2 1 0 1 4 1 5 1 6 2 1 2 3 2 1 2 6 2 7 2 6 3 4 3 7 3 4 3 6 3 5 3 1 4 4 4 2 4 4 4 1 4 7 4 6 5 0 5 5 5 0 5 6 5 3 5 8 0 9 0 10 0 9 0 8 0 11 0 12 1 8 1 10 1 8 1 12 1 13 1 14 2 9 2 11 2 9 2 14 2 15 2 14 3 12 3 15 3 12 3 14 3 13 3 9 4 12 4 10 4 12 4 9 4 15 4 14 5 8 5 13 5 8 5 14 5 11 5 16 0 17 0 18 0 17 0 16 0 19 0 20 1 16 1 18 1 16 1 20 1 21 1 22 2 17 2 19 2 17 2 22 2 23 2 22 3 20 3 23 3 20 3 22 3 21 3 17 4 20 4 18 4 20 4 17 4 23 4 22 5 16 5 21 5 16 5 22 5 19 5 24 0 25 0 26 0 25 0 24 0 27 0 28 1 24 1 26 1 24 1 28 1 29 1 30 2 25 2 27 2 25 2 30 2 31 2 30 3 28 3 31 3 28 3 30 3 29 3 25 4 28 4 26 4 28 4 25 4 31 4 30 5 24 5 29 5 24 5 30 5 27 5</p>
+        </triangles>
+      </mesh>
+    </geometry>
+  </library_geometries>
+  <library_visual_scenes>
+    <visual_scene id="Scene" name="Scene">
+      <node id="Rails_Straight" name="Rails Straight" type="NODE">
+        <matrix sid="transform">0.8660253 -0.5000001 0 0 0.5000001 0.8660253 0 0 0 0 1 0 0 0 0 1</matrix>
+        <instance_geometry url="#Rails_Straight-mesh" name="Rails Straight">
+          <bind_material>
+            <technique_common>
+              <instance_material symbol="stone-material" target="#stone-material"/>
+            </technique_common>
+          </bind_material>
+        </instance_geometry>
+      </node>
+      <node id="Beats_Straight_01" name="Beats Straight 01" type="NODE">
+        <matrix sid="transform">0.8660253 -0.5000001 0 0 0.5000001 0.8660253 0 0 0 0 1 0 0 0 0 1</matrix>
+        <instance_geometry url="#Beats_Straight_01-mesh" name="Beats Straight 01">
+          <bind_material>
+            <technique_common>
+              <instance_material symbol="wood-material" target="#wood-material"/>
+            </technique_common>
+          </bind_material>
+        </instance_geometry>
+      </node>
+    </visual_scene>
+  </library_visual_scenes>
+  <scene>
+    <instance_visual_scene url="#Scene"/>
+  </scene>
+</COLLADA>

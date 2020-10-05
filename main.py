@@ -1,5 +1,5 @@
 
-import sys
+import sys, random
 from pathlib import Path
 from collections import defaultdict
 from configparser import ConfigParser
@@ -109,14 +109,20 @@ class Game(ShowBase):
         self.tile_tray.setTransparency(TransparencyAttrib.MAlpha)
 
         track_id_to_thumb = {
-            1: 'straight_thumb.png',
-            2: 'curved_thumb.png',
+            1: 'straight_1-2-3-4.png',
+            2: 'curved_1-2-3-4.png',
+            3: 'straight_1-_-3-4.png',
+            4: 'straight_1-2-_-4.png',
+            5: 'straight_1-2-3-_.png',
+            6: 'curved_1-_-3-4.png',
+            7: 'curved_1-2-_-4.png',
+            8: 'curved_1-2-3-_.png',
         }
-        self.thumbs = [1, 1, 2]
+        self.thumbs = random.choices(list(track_id_to_thumb), k=3)
         self.selected_thumb = None
 
         for n, thumb in enumerate(self.thumbs):
-            _thumb = OnscreenImage(image='data/' + track_id_to_thumb[thumb],
+            _thumb = OnscreenImage(image='thumbs/' + track_id_to_thumb[thumb],
                 pos=((n+1)*2/(len(self.thumbs) + 1) - 1, 0, -.82),
                 scale=.15, parent=self.aspect2d)
             _thumb.setTransparency(TransparencyAttrib.MAlpha)
@@ -158,7 +164,7 @@ class Game(ShowBase):
                 scale, aspect_ratio = .15, 16/9
                 x, y = (n+1)*2/(len(self.thumbs) + 1) - 1, -.82
                 if -scale < x - mpos.x*aspect_ratio < scale:
-                    self.selected_thumb = n
+                    self.selected_thumb = self.thumbs[n]
         else:
             # handle tile clicked
             if self.selected_thumb is not None:
