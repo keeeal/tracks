@@ -61,6 +61,7 @@ class Game(ShowBase):
         for layer in tiled_map:
             for x, y, tile_type in layer.tiles():
                 if tile_type is not None:
+                    print(tile_type)
                     if isinstance(tile_type, Train):
                         train_node = tile_type.train.copyTo(self.level)
                         train_node.set_pos(*from_hex(x, y), self.z[x, y])
@@ -107,13 +108,16 @@ class Game(ShowBase):
             pos=(0, 0, -1.66), color=(0, 0, 0, .3), parent=self.render2d)
         self.tile_tray.setTransparency(TransparencyAttrib.MAlpha)
 
-        thumbs = ['straight_thumb.png',
-                  'straight_thumb.png',
-                  'curved_thumb.png']
+        track_id_to_thumb = {
+            1: 'straight_thumb.png',
+            2: 'curved_thumb.png',
+        }
+        self.thumbs = [1, 1, 2]
+        self.selected_thumb = None
 
-        for n, thumb in enumerate(thumbs):
-            _thumb = OnscreenImage(image='data/' + thumb,
-                pos=((n+1)*2/(len(thumbs) + 1) - 1, 0, -.82),
+        for n, thumb in enumerate(self.thumbs):
+            _thumb = OnscreenImage(image='data/' + track_id_to_thumb[thumb],
+                pos=((n+1)*2/(len(self.thumbs) + 1) - 1, 0, -.82),
                 scale=.15, parent=self.aspect2d)
             _thumb.setTransparency(TransparencyAttrib.MAlpha)
 
@@ -121,7 +125,7 @@ class Game(ShowBase):
 
     def update_track(self):
         if self.track_nodes is not None:
-            self.track_node.removeNode()
+            self.track_nodes.removeNode()
         self.track_nodes = self.level.attach_new_node("track")
         for (x, y), tile_type in self.track.items():
             if tile_type is not None:
@@ -142,12 +146,27 @@ class Game(ShowBase):
         if pickedObj is not None:
             tile = pickedObj.parent.parent.parent
             x, y, z = tile.get_pos()
-            tile_x, tile_y = to_hex(x, y)
-            print(tile_x, tile_y)
-            print(f"Clear: {self.clear[tile_x, tile_y] and self.track.get((tile_x, tile_y)) is None}")
+            self.mouse_tile_coords = to_hex(x, y)
+        else:
+            self.mouse_tile_coords = None
 
     def handle_mouse_click(self):
-        pass
+        mpos = self.mouseWatcherNode.getMouse()
+        if mpos.y < -2/3:
+            # handle tile tray clicked
+            for n, thumb in enumerate(self.thumbs):
+                scale, aspect_ratio = .15, 16/9
+                x, y = (n+1)*2/(len(self.thumbs) + 1) - 1, -.82
+                if -scale < x - mpos.x*aspect_ratio < scale:
+                    self.selected_thumb = n
+        else:
+            # handle tile clicked
+            if self.selected_thumb is not None:
+                tile_x, tile_y = self.mouse_tile_coords
+                if self.clear[tile_x, tile_y] and self.track.get((tile_x, tile_y)) is None:
+                    self.track[tile_x, tile_y] = self.tile_list['tracks.png'][self.selected_thumb]
+                    self.update_track()
+
 
     def load_controls(self, controls: str):
         parser = ConfigParser()
