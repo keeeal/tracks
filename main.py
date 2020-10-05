@@ -9,13 +9,14 @@ from direct.gui.OnscreenImage import OnscreenImage
 from panda3d.core import loadPrcFile
 from panda3d.core import AntialiasAttrib
 from panda3d.core import TransparencyAttrib
+from panda3d.core import CollisionHandlerQueue, CollisionTraverser, CollisionNode, GeomNode, CollisionRay
 
 from pytmx import TiledMap
 
 from rhythm import Timeline
 from tiles import tiles, Track
 from utils.lights import ambient_light, directional_light
-from utils.grid import from_hex
+from utils.grid import from_hex, to_hex
 
 config_dir = Path('config')
 data_dir = Path('data')
@@ -101,8 +102,36 @@ class Game(ShowBase):
                 scale=.15, parent=self.aspect2d)
             _thumb.setTransparency(TransparencyAttrib.MAlpha)
 
+        click = False
         selected_track = None
 
+        myHandler = CollisionHandlerQueue()
+        myTraverser = CollisionTraverser('traverser')
+        pickerNode = CollisionNode('mouseRay')
+        pickerNP = self.camera.attachNewNode(pickerNode)
+        pickerNode.setFromCollideMask(GeomNode.getDefaultCollideMask())
+        pickerRay = CollisionRay()
+        pickerNode.addSolid(pickerRay)
+        myTraverser.addCollider(pickerNP, myHandler)
+
+        def handle_mouse_move():
+            mpos = self.mouseWatcherNode.getMouse()
+            pickerRay.setFromLens(self.camNode, mpos.getX(), mpos.getY())
+            myTraverser.traverse(self.render)
+
+            if myHandler.getNumEntries() > 0:
+                myHandler.sortEntries()
+                pickedObj = myHandler.getEntry(0).getIntoNodePath()
+                if not pickedObj.isEmpty():
+                    tile = pickedObj.parent.parent.parent
+                    x, y, z = tile.get_pos()
+                    print(to_hex(x, y))
+
+        def handle_mouse_click():
+            pass
+
+        self.handle_mouse_move = handle_mouse_move
+        self.handle_mouse_click = handle_mouse_click
 
 
 
@@ -118,14 +147,10 @@ class Game(ShowBase):
 
 
     def loop(self, task):
-        for action, value in self.actions.items():
-            if value:
-                print(action)
-
-        if self.mouseWatcherNode.has_mouse():
-            x = self.mouseWatcherNode.get_mouse_x()
-            y = self.mouseWatcherNode.get_mouse_y()
-            print(x, y)
+        if self.mouseWatcherNode.hasMouse():
+            self.handle_mouse_move()
+            if self.actions['click']:
+                self.handle_mouse_click()
 
         if self.actions['exit']:
             sys.exit()
