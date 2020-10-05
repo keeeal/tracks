@@ -34,22 +34,18 @@ class Game(ShowBase):
         self.timeline = Timeline()
         self.last_time = 0.0
 
-        tile_list = tiles(self)
-
         def extract_tile_id(filename, flags, tileset):
             def inner(rect, flags):
                 x, y, w, h = rect
                 return x // w + y // h * tileset.columns
             return inner
 
+        tile_list = tiles(self)
         tiled_map = TiledMap(level, image_loader=extract_tile_id)
-
         level = self.render.attach_new_node("level")
         width = tiled_map.width
         height = tiled_map.height * 3**0.5 / 2
         level.set_pos(width / 2, -height / 2, 0)
-
-        z = {}
 
         def get_track(x, y):
             for i, layer in enumerate(tiled_map):
@@ -58,6 +54,7 @@ class Game(ShowBase):
                     return tile
             return None
 
+        z = {}
         for layer in tiled_map:
             for x, y, tile_id in layer.tiles():
                 if (tile_type := tile_list.get(tile_id)) is not None:
@@ -93,6 +90,18 @@ class Game(ShowBase):
         tile_tray = OnscreenImage(image='data/black.png',
             pos=(0, 0, -1.66), color=(0, 0, 0, .3), parent=self.render2d)
         tile_tray.setTransparency(TransparencyAttrib.MAlpha)
+
+        thumbs = ['straight_thumb.png',
+                  'straight_thumb.png',
+                  'curved_thumb.png']
+
+        for n, thumb in enumerate(thumbs):
+            _thumb = OnscreenImage(image='data/' + thumb,
+                pos=((n+1)*2/(len(thumbs) + 1) - 1, 0, -.82),
+                scale=.15, parent=self.aspect2d)
+            _thumb.setTransparency(TransparencyAttrib.MAlpha)
+
+        selected_track = None
 
 
 

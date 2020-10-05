@@ -1,41 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.4" tiledversion="1.4.2" orientation="hexagonal" renderorder="right-down" width="10" height="10" tilewidth="128" tileheight="104" infinite="0" hexsidelength="52" staggeraxis="y" staggerindex="odd" nextlayerid="6" nextobjectid="1">
+<map version="1.4" tiledversion="1.4.2" orientation="hexagonal" renderorder="right-down" width="10" height="10" tilewidth="128" tileheight="104" infinite="0" hexsidelength="52" staggeraxis="y" staggerindex="odd" nextlayerid="7" nextobjectid="1">
  <tileset firstgid="1" source="tracks.tsx"/>
  <layer id="1" name="Tile Layer 1" width="10" height="10">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
-6,0,0,0,6,3,12,0,0,0,
-0,0,0,0,2,5,6,0,0,0,
-0,0,0,0,2,4,4,4,0,0,
-0,0,0,4,4,8,7,0,0,0,
-0,0,6,0,4,4,9,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
+0,0,0,36,39,37,15,15,0,0,
+0,0,0,36,37,38,39,16,0,0,
+0,0,36,36,8,19,18,0,0,0,
+0,0,35,34,17,17,17,17,0,0,
+0,0,17,17,17,17,17,0,0,0,
+0,0,40,3,7,17,17,0,0,0,
+0,42,40,40,40,0,0,0,0,0,
+0,0,0,40,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <layer id="2" name="Tile Layer 2" width="10" height="10">
+ <layer id="6" name="Tile Layer 2" width="10" height="10">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,16,16,0,0,0,0,
-0,0,0,0,0,16,0,0,0,0,
-0,0,0,0,0,0,16,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0
-</data>
- </layer>
- <layer id="5" name="Tile Layer 3" width="10" height="10">
-  <data encoding="csv">
-0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,1,0,0,0,0,
+0,0,0,0,45,43,43,44,0,0,
 0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,

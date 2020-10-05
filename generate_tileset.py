@@ -39,6 +39,7 @@ if __name__ == '__main__':
         col = tile.tile_id % cols
         row = tile.tile_id // cols
         placeholder.setPos((cols - col - 1) + 0.5, 0, -((row + 1.0) * aspect - 0.5) * 2**0.5 - 0.1)
+        # placeholder.setHpr(0, 0, 0)
         tile.node.instanceTo(placeholder)
 
     # use antialiasing
