@@ -1,6 +1,8 @@
+from copy import deepcopy
+from dataclasses import dataclass, field, replace
+import itertools
 from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Mapping, Optional, Tuple, List, Callable
+from typing import Mapping, Optional, Tuple, List, Callable, Sequence, Iterable
 
 import numpy as np
 from direct.showbase import ShowBase
@@ -45,6 +47,9 @@ class Track(Tile):
 
     beats: List[float] = field(compare=False)
     """Timings of beats produced by this track, given in cumulative cost"""
+
+    rotate_cw: Optional[int] = field(compare=False)
+    rotate_ccw: Optional[int] = field(compare=False)
 
 
 @dataclass(frozen=True)
@@ -119,6 +124,7 @@ class TrainInstance:
             path = iter(reversed(current_tile.path))
             dir_offset = current_tile.path[-1][0]
         prev_cost, (prev_x, prev_y) = next(path)
+        prev_cost = dir_offset + self.direction * prev_cost
         for cost, (node_x, node_y) in path:
             cost = dir_offset + self.direction * cost
             angle = np.degrees(np.arctan2(prev_y - node_y, prev_x - node_x))
@@ -171,6 +177,53 @@ def down_left(x: int, y: int) -> Tuple[int, int]:
 
 up_right.reverse = down_left
 down_left.reverse = up_right
+
+left.rotate_cw = up_left
+up_left.rotate_cw = up_right
+up_right.rotate_cw = right
+right.rotate_cw = down_right
+down_right.rotate_cw = down_left
+down_left.rotate_cw = left
+
+left.rotate_ccw = down_left
+down_left.rotate_ccw = down_right
+down_right.rotate_ccw = right
+right.rotate_ccw = up_right
+up_right.rotate_ccw = up_left
+up_left.rotate_ccw = left
+
+#                 rotations(nrot=3, id_offset=8, tiles=(
+#                     Track(
+#                         tile_id=1,
+#                         node=load_model(track_dir / "straight_1-2-3-4.dae"),
+#                         height=0.0,
+#                         clear=False,
+#                         removable=True,
+#                         src=left,
+#                         dst=right,
+#                         path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+#                         beats=[0, 0.25, 0.5, 0.75],
+#                    ),
+def rotations(nrot: int, id_offset: int, tiles: Sequence[Track]) -> Iterable[Track]:
+    c, s = np.cos(np.radians(-60)), np.sin(np.radians(-60))
+    for tile in tiles:
+        tile = replace(tile, rotate_ccw=tile.tile_id + id_offset, rotate_cw=tile.tile_id + (nrot - 1) * id_offset)
+        yield tile
+        for i in range(1, nrot):
+            node = deepcopy(tile.node)
+            h, p, r = node.getHpr()
+            node.setHpr(h, p, r + 60)
+            tile = replace(
+                tile,
+                tile_id=tile.tile_id + id_offset,
+                rotate_cw=tile.tile_id,
+                rotate_ccw=(tile.tile_id + 2 * id_offset) if i + 1 < nrot else (tile.tile_id - (nrot - 2) * id_offset),
+                node=node,
+                src=tile.src.rotate_ccw,
+                dst=tile.dst.rotate_ccw,
+                path=[(t, (x * c + y * s, -x * s + y * c)) for t, (x, y) in tile.path],
+            )
+            yield tile
 
 
 def tiles(base: ShowBase) -> Mapping[int, Tile]:
@@ -461,6 +514,8 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
                 ),
                 Train(
                     tile_id=42,
+                    rotate_cw=None,
+                    rotate_ccw=None,
                     node=load_model(track_dir / "straight_1-2-3-4.dae"),
                     train=load_model(train_dir / "train.dae"),
                     height=0.0,
@@ -476,119 +531,139 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
         },
         "tracks.png": {
             tile.tile_id: tile
-            for tile in (
-                Track(
-                    tile_id=1,
-                    node=load_model(track_dir / "straight_1-2-3-4.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[(0, (0.5, 0)), (1, (-0.5, 0))],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
-                Track(
-                    tile_id=3,
-                    node=load_model(track_dir / "straight_1-_-3-4.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[(0, (0.5, 0)), (1, (-0.5, 0))],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
-                Track(
-                    tile_id=4,
-                    node=load_model(track_dir / "straight_1-2-_-4.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[(0, (0.5, 0)), (1, (-0.5, 0))],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
-                Track(
-                    tile_id=5,
-                    node=load_model(track_dir / "straight_1-2-3-_.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[(0, (0.5, 0)), (1, (-0.5, 0))],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
-                Track(
-                    tile_id=2,
-                    node=load_model(track_dir / "curved_1-2-3-4.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[
-                        (0/4, (.5, 0)),
-                        (1/4, (.276, -.029)),
-                        (2/4, (.067, -.116)),
-                        (3/4, (-.112, -.253)),
-                        (4/4, (-.25, -.433)),
-                    ],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
-                Track(
-                    tile_id=6,
-                    node=load_model(track_dir / "curved_1-_-3-4.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[
-                        (0/4, (.5, 0)),
-                        (1/4, (.276, -.029)),
-                        (2/4, (.067, -.116)),
-                        (3/4, (-.112, -.253)),
-                        (4/4, (-.25, -.433)),
-                    ],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
-                Track(
-                    tile_id=7,
-                    node=load_model(track_dir / "curved_1-2-_-4.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[
-                        (0/4, (.5, 0)),
-                        (1/4, (.276, -.029)),
-                        (2/4, (.067, -.116)),
-                        (3/4, (-.112, -.253)),
-                        (4/4, (-.25, -.433)),
-                    ],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
-                Track(
-                    tile_id=8,
-                    node=load_model(track_dir / "curved_1-2-3-_.dae"),
-                    height=0.0,
-                    clear=False,
-                    removable=True,
-                    src=left,
-                    dst=right,
-                    path=[
-                        (0/4, (.5, 0)),
-                        (1/4, (.276, -.029)),
-                        (2/4, (.067, -.116)),
-                        (3/4, (-.112, -.253)),
-                        (4/4, (-.25, -.433)),
-                    ],
-                    beats=[0, 0.25, 0.5, 0.75],
-                ),
+            for tile in itertools.chain(
+                rotations(nrot=3, id_offset=8, tiles=(
+                    Track(
+                        tile_id=1,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "straight_1-2-3-4.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=right,
+                        path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                        beats=[0, 0.25, 0.5, 0.75],
+                    ),
+                    Track(
+                        tile_id=3,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "straight_1-_-3-4.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=right,
+                        path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                        beats=[0, 0.5, 0.75],
+                    ),
+                    Track(
+                        tile_id=4,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "straight_1-2-_-4.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=right,
+                        path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                        beats=[0, 0.25, 0.75],
+                    ),
+                    Track(
+                        tile_id=5,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "straight_1-2-3-_.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=right,
+                        path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                        beats=[0, 0.25, 0.5],
+                    ),
+                )),
+                rotations(nrot=6, id_offset=8, tiles=(
+                    Track(
+                        tile_id=2,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "curved_1-2-3-4.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=up_right,
+                        path=[
+                            (0/4, (.5, 0)),
+                            (1/4, (.276, -.029)),
+                            (2/4, (.067, -.116)),
+                            (3/4, (-.112, -.253)),
+                            (4/4, (-.25, -.433)),
+                        ],
+                        beats=[0, 0.25, 0.5, 0.75],
+                    ),
+                    Track(
+                        tile_id=6,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "curved_1-_-3-4.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=up_right,
+                        path=[
+                            (0/4, (.5, 0)),
+                            (1/4, (.276, -.029)),
+                            (2/4, (.067, -.116)),
+                            (3/4, (-.112, -.253)),
+                            (4/4, (-.25, -.433)),
+                        ],
+                        beats=[0, 0.5, 0.75],
+                    ),
+                    Track(
+                        tile_id=7,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "curved_1-2-_-4.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=up_right,
+                        path=[
+                            (0/4, (.5, 0)),
+                            (1/4, (.276, -.029)),
+                            (2/4, (.067, -.116)),
+                            (3/4, (-.112, -.253)),
+                            (4/4, (-.25, -.433)),
+                        ],
+                        beats=[0, 0.25, 0.75],
+                    ),
+                    Track(
+                        tile_id=8,
+                        rotate_cw=None,
+                        rotate_ccw=None,
+                        node=load_model(track_dir / "curved_1-2-3-_.dae"),
+                        height=0.0,
+                        clear=False,
+                        removable=True,
+                        src=left,
+                        dst=up_right,
+                        path=[
+                            (0/4, (.5, 0)),
+                            (1/4, (.276, -.029)),
+                            (2/4, (.067, -.116)),
+                            (3/4, (-.112, -.253)),
+                            (4/4, (-.25, -.433)),
+                        ],
+                        beats=[0, 0.25, 0.5],
+                    ),
+                )),
             )
         },
     }

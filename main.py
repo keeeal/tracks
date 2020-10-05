@@ -35,6 +35,7 @@ class Game(ShowBase):
 
         # set up timing system
         self.timeline = Timeline()
+        self.timeline.speed = 0
         self.last_time = 0.0
 
         self.tile_list = tiles(self)
@@ -61,7 +62,6 @@ class Game(ShowBase):
         for layer in tiled_map:
             for x, y, tile_type in layer.tiles():
                 if tile_type is not None:
-                    print(tile_type)
                     if isinstance(tile_type, Train):
                         train_node = tile_type.train.copyTo(self.level)
                         train_node.set_pos(*from_hex(x, y), self.z[x, y])
@@ -104,9 +104,22 @@ class Game(ShowBase):
         self.task_mgr.add(self.loop, 'loop')
 
         # create a ui
-        self.tile_tray = OnscreenImage(image='data/black.png',
-            pos=(0, 0, -1.66), color=(0, 0, 0, .3), parent=self.render2d)
+        aspect_ratio = self.get_aspect_ratio()
+
+        self.tile_tray = self.aspect2d.attach_new_node("tile_tray")
+        tile_tray_bg = OnscreenImage(image='data/black.png',
+            pos=(0, 0, -1.66), scale=(aspect_ratio, 0, 1), color=(0, 0, 0, .3), parent=self.tile_tray)
         self.tile_tray.setTransparency(TransparencyAttrib.MAlpha)
+
+        self.play = OnscreenImage(image='data/play.png',
+            pos=(-0.9 * aspect_ratio, 0, 0.85), scale=0.08, parent=self.aspect2d)
+        self.play.setTransparency(TransparencyAttrib.MAlpha)
+        self.stop = OnscreenImage(image='data/stop.png',
+            pos=(-0.9 * aspect_ratio, 0, 0.85), scale=0.08, parent=self.aspect2d)
+        self.stop.setTransparency(TransparencyAttrib.MAlpha)
+        self.stop.hide()
+
+        self.playing = False
 
         track_id_to_thumb = {
             1: 'straight_1-2-3-4.png',
@@ -124,8 +137,16 @@ class Game(ShowBase):
         for n, thumb in enumerate(self.thumbs):
             _thumb = OnscreenImage(image='thumbs/' + track_id_to_thumb[thumb],
                 pos=((n+1)*2/(len(self.thumbs) + 1) - 1, 0, -.82),
-                scale=.15, parent=self.aspect2d)
+                scale=.15, parent=self.tile_tray)
             _thumb.setTransparency(TransparencyAttrib.MAlpha)
+
+        self.preview = self.level.attach_new_node("preview")
+        self.preview.setTransparency(TransparencyAttrib.MAlpha)
+        self.preview.setColorScale(2, 2, 2, 0.65)
+        self.preview.hide()
+
+        self.rotating_cw = False
+        self.rotating_ccw = False
 
         self.mouse_handler = MouseHandler(self.camera, self.tile_nodes)
 
@@ -152,26 +173,69 @@ class Game(ShowBase):
         if pickedObj is not None:
             tile = pickedObj.parent.parent.parent
             x, y, z = tile.get_pos()
-            self.mouse_tile_coords = to_hex(x, y)
+            tile_x, tile_y = to_hex(x, y)
+            self.mouse_tile_coords = tile_x, tile_y
+            if mpos.y >= -2/3 and self.selected_thumb is not None and self.clear[tile_x, tile_y] and self.track.get((tile_x, tile_y)) is None and not self.playing:
+                self.preview.setPos(x, y, self.z[tile_x, tile_y])
+                self.preview.show()
+            else:
+                self.preview.hide()
         else:
             self.mouse_tile_coords = None
+            self.preview.hide()
+
+    def select(self, tile_id):
+        if tile_id != self.selected_thumb:
+            self.selected_thumb = tile_id
+            self.preview.get_children().detach()
+            if self.selected_thumb is not None:
+                self.tile_list['tracks.png'][self.selected_thumb].node.instanceTo(self.preview)
+
 
     def handle_mouse_click(self):
+        scale, aspect_ratio = .15, self.get_aspect_ratio()
         mpos = self.mouseWatcherNode.getMouse()
-        if mpos.y < -2/3:
-            # handle tile tray clicked
-            for n, thumb in enumerate(self.thumbs):
-                scale, aspect_ratio = .15, 16/9
-                x, y = (n+1)*2/(len(self.thumbs) + 1) - 1, -.82
-                if -scale < x - mpos.x*aspect_ratio < scale:
-                    self.selected_thumb = self.thumbs[n]
-        else:
+        if mpos.y > 0.75 and mpos.x * aspect_ratio < -0.75:
+            self.playing = not self.playing
+            if self.playing:
+                self.play.hide()
+                self.stop.show()
+                self.tile_tray.hide()
+                self.preview.hide()
+                self.timeline.speed = 1
+            else:
+                self.play.show()
+                self.stop.hide()
+                self.tile_tray.show()
+                self.timeline.speed = 0
+                self.timeline.reset()
+        elif not self.playing:
+            if mpos.y < -2/3:
+                # handle tile tray clicked
+                for n, thumb in enumerate(self.thumbs):
+                    x, y = (n+1)*2/(len(self.thumbs) + 1) - 1, -.82
+                    if -scale < x - mpos.x*aspect_ratio < scale:
+                        self.select(self.thumbs[n])
+            else:
+                # handle tile clicked
+                if self.selected_thumb is not None and self.mouse_tile_coords is not None:
+                    tile_x, tile_y = self.mouse_tile_coords
+                    if self.clear[tile_x, tile_y] and self.track.get((tile_x, tile_y)) is None:
+                        self.track[tile_x, tile_y] = self.tile_list['tracks.png'][self.selected_thumb]
+                        self.update_track()
+
+
+    def handle_mouse_alt_click(self):
+        mpos = self.mouseWatcherNode.getMouse()
+        if mpos.y >= -2/3:
             # handle tile clicked
-            if self.selected_thumb is not None:
+            if self.mouse_tile_coords is not None:
                 tile_x, tile_y = self.mouse_tile_coords
-                if self.clear[tile_x, tile_y] and self.track.get((tile_x, tile_y)) is None:
-                    self.track[tile_x, tile_y] = self.tile_list['tracks.png'][self.selected_thumb]
+                tile = self.track.get((tile_x, tile_y))
+                if tile is not None and tile.removable:
+                    del self.track[tile_x, tile_y]
                     self.update_track()
+        self.select(None)
 
 
     def load_controls(self, controls: str):
@@ -179,20 +243,39 @@ class Game(ShowBase):
         parser.read(controls)
         default = parser['DEFAULT']
         self.actions = {a: False for a in default}
+        self.immediate_actions = {a: 0 for a in default}
 
         for action, key in default.items():
-            self.accept(key, self.actions.update, [{action: True}])
+            def inc_action(action):
+                self.actions.update({action: True})
+                self.immediate_actions[action] += 1
+            self.accept(key, inc_action, [action])
             self.accept(key + '-up', self.actions.update, [{action: False}])
 
 
     def loop(self, task):
         if self.mouseWatcherNode.hasMouse():
             self.handle_mouse_move()
-            if self.actions['click']:
+            if self.immediate_actions['interact'] > 0:
                 self.handle_mouse_click()
+                self.immediate_actions['interact'] = 0
+            if self.immediate_actions['cancel'] > 0:
+                self.handle_mouse_alt_click()
+                self.immediate_actions['cancel'] = 0
 
-        if self.actions['exit']:
+
+        if self.immediate_actions['exit'] > 0:
             sys.exit()
+
+        while self.immediate_actions['rotate_cw'] > 0:
+            if self.selected_thumb is not None:
+                self.select(self.tile_list['tracks.png'][self.selected_thumb].rotate_cw)
+            self.immediate_actions['rotate_cw'] -= 1
+
+        while self.immediate_actions['rotate_ccw'] > 0:
+            if self.selected_thumb is not None:
+                self.select(self.tile_list['tracks.png'][self.selected_thumb].rotate_ccw)
+            self.immediate_actions['rotate_ccw'] -= 1
 
         self.timeline.update(task.time - self.last_time)
         self.last_time = task.time
