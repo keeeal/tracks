@@ -1,6 +1,7 @@
 
 import sys
 from pathlib import Path
+from collections import defaultdict
 from configparser import ConfigParser
 
 from direct.showbase.ShowBase import ShowBase
@@ -9,14 +10,15 @@ from direct.gui.OnscreenImage import OnscreenImage
 from panda3d.core import loadPrcFile
 from panda3d.core import AntialiasAttrib
 from panda3d.core import TransparencyAttrib
-from panda3d.core import CollisionHandlerQueue, CollisionTraverser, CollisionNode, GeomNode, CollisionRay
 
 from pytmx import TiledMap
 
 from rhythm import Timeline
-from tiles import tiles, Track
+from tiles import tiles, Track, Train, TrainInstance
 from utils.lights import ambient_light, directional_light
 from utils.grid import from_hex, to_hex
+from utils.mouse import MouseHandler
+
 
 config_dir = Path('config')
 data_dir = Path('data')
@@ -35,35 +37,47 @@ class Game(ShowBase):
         self.timeline = Timeline()
         self.last_time = 0.0
 
-        def extract_tile_id(filename, flags, tileset):
+        self.tile_list = tiles(self)
+
+        def extract_tile(filename, flags, tileset):
+            filename = Path(filename).name
+            tiles = self.tile_list[filename]
             def inner(rect, flags):
                 x, y, w, h = rect
-                return x // w + y // h * tileset.columns
+                return tiles[x // w + y // h * tileset.columns]
             return inner
 
-        tile_list = tiles(self)
-        tiled_map = TiledMap(level, image_loader=extract_tile_id)
-        level = self.render.attach_new_node("level")
+        tiled_map = TiledMap(level, image_loader=extract_tile)
+        self.level = self.render.attach_new_node("level")
+        self.tile_nodes = self.level.attach_new_node("tiles")
         width = tiled_map.width
         height = tiled_map.height * 3**0.5 / 2
-        level.set_pos(width / 2, -height / 2, 0)
+        self.level.set_pos(width / 2, -height / 2, 0)
 
-        def get_track(x, y):
-            for i, layer in enumerate(tiled_map):
-                tile = tile_list.get(tiled_map.get_tile_image(x, y, i))
-                if isinstance(tile, Track):
-                    return tile
-            return None
-
-        z = {}
+        self.z = defaultdict(int)
+        self.track = {}
+        self.clear = {}
+        self.trains = []
         for layer in tiled_map:
-            for x, y, tile_id in layer.tiles():
-                if (tile_type := tile_list.get(tile_id)) is not None:
-                    tile = level.attach_new_node("tile")
-                    tile.set_pos(*from_hex(x, y), z.get((x, y), 0))
-                    z[(x, y)] = z.get((x, y), 0) + tile_type.height
-                    tile_type.instance_to(tile)
-                    tile_type.register(tile, self.timeline, x, y, get_track)
+            for x, y, tile_type in layer.tiles():
+                if tile_type is not None:
+                    if isinstance(tile_type, Train):
+                        train_node = tile_type.train.copyTo(self.level)
+                        train_node.set_pos(*from_hex(x, y), self.z[x, y])
+                        self.trains.append(TrainInstance(tile_type, train_node, x, y))
+                    if isinstance(tile_type, Track):
+                        self.track[x, y] = tile_type
+                    else:
+                        tile = self.tile_nodes.attach_new_node("tile")
+                        tile.set_pos(*from_hex(x, y), self.z[x, y])
+                        self.z[x, y] += tile_type.height
+                        self.clear[x, y] = self.clear.get((x, y), True) and tile_type.clear
+                        tile_type.node.instanceTo(tile)
+
+        self.track_nodes = None
+        self.update_track()
+
+        self.timeline.subscribe(self.update_trains)
 
         # use antialiasing
         self.render.set_antialias(AntialiasAttrib.MMultisample)
@@ -75,22 +89,23 @@ class Game(ShowBase):
 
         # create a light
         ambient = ambient_light(colour=(.3, .3, .3, 1))
-        ambient = self.render.attach_new_node(ambient)
-        self.render.set_light(ambient)
+        self.ambient = self.render.attach_new_node(ambient)
+        self.render.set_light(self.ambient)
 
         # create another light
         directional = directional_light(
             colour=(1, 1, 1, 1), direction=(-1, -2, -3))
-        directional = self.render.attach_new_node(directional)
-        self.render.set_light(directional)
+        self.directional = self.render.attach_new_node(directional)
+        self.render.set_light(self.directional)
+
         # load control scheme from file
         self.load_controls(controls)
         self.task_mgr.add(self.loop, 'loop')
 
         # create a ui
-        tile_tray = OnscreenImage(image='data/black.png',
+        self.tile_tray = OnscreenImage(image='data/black.png',
             pos=(0, 0, -1.66), color=(0, 0, 0, .3), parent=self.render2d)
-        tile_tray.setTransparency(TransparencyAttrib.MAlpha)
+        self.tile_tray.setTransparency(TransparencyAttrib.MAlpha)
 
         thumbs = ['straight_thumb.png',
                   'straight_thumb.png',
@@ -102,38 +117,37 @@ class Game(ShowBase):
                 scale=.15, parent=self.aspect2d)
             _thumb.setTransparency(TransparencyAttrib.MAlpha)
 
-        click = False
-        selected_track = None
+        self.mouse_handler = MouseHandler(self.camera, self.tile_nodes)
 
-        myHandler = CollisionHandlerQueue()
-        myTraverser = CollisionTraverser('traverser')
-        pickerNode = CollisionNode('mouseRay')
-        pickerNP = self.camera.attachNewNode(pickerNode)
-        pickerNode.setFromCollideMask(GeomNode.getDefaultCollideMask())
-        pickerRay = CollisionRay()
-        pickerNode.addSolid(pickerRay)
-        myTraverser.addCollider(pickerNP, myHandler)
+    def update_track(self):
+        if self.track_nodes is not None:
+            self.track_node.removeNode()
+        self.track_nodes = self.level.attach_new_node("track")
+        for (x, y), tile_type in self.track.items():
+            if tile_type is not None:
+                tile = self.track_nodes.attach_new_node("tile")
+                tile.set_pos(*from_hex(x, y), self.z[x, y])
+                tile_type.node.instanceTo(tile)
 
-        def handle_mouse_move():
-            mpos = self.mouseWatcherNode.getMouse()
-            pickerRay.setFromLens(self.camNode, mpos.getX(), mpos.getY())
-            myTraverser.traverse(self.render)
+    def update_trains(self, old, new):
+        return [
+            beat
+            for train in self.trains
+            for beat in train.update(old, new, self.track)
+        ]
 
-            if myHandler.getNumEntries() > 0:
-                myHandler.sortEntries()
-                pickedObj = myHandler.getEntry(0).getIntoNodePath()
-                if not pickedObj.isEmpty():
-                    tile = pickedObj.parent.parent.parent
-                    x, y, z = tile.get_pos()
-                    print(to_hex(x, y))
+    def handle_mouse_move(self):
+        mpos = self.mouseWatcherNode.getMouse()
+        pickedObj = self.mouse_handler.pick_node(mpos)
+        if pickedObj is not None:
+            tile = pickedObj.parent.parent.parent
+            x, y, z = tile.get_pos()
+            tile_x, tile_y = to_hex(x, y)
+            print(tile_x, tile_y)
+            print(f"Clear: {self.clear[tile_x, tile_y] and self.track.get((tile_x, tile_y)) is None}")
 
-        def handle_mouse_click():
-            pass
-
-        self.handle_mouse_move = handle_mouse_move
-        self.handle_mouse_click = handle_mouse_click
-
-
+    def handle_mouse_click(self):
+        pass
 
     def load_controls(self, controls: str):
         parser = ConfigParser()

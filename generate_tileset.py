@@ -1,5 +1,6 @@
 
 import os, sys, json
+from pathlib import Path
 
 import numpy as np
 from direct.showbase.ShowBase import ShowBase
@@ -7,7 +8,7 @@ from panda3d.core import loadPrcFileData
 from panda3d.core import AntialiasAttrib
 from panda3d.core import OrthographicLens
 
-from tiles import tiles
+from tiles import tiles, Train
 from utils.lights import ambient_light, directional_light
 
 
@@ -25,32 +26,15 @@ if __name__ == '__main__':
 
     base = ShowBase()
 
-    tile_list = tiles(base)
-
-    cols = 4
-    rows = max(tile_id for tile_id in tile_list) // cols + 1
-
-    base.openWindow(type='offscreen', size=(cols * width, rows * height), makeCamera=True)
+    tile_lists = tiles(base)
 
     base.set_background_color(33/255, 46/255, 56/255)
-
-    for tile in tile_list.values():
-        placeholder = base.render.attachNewNode("tile-placeholder")
-        col = tile.tile_id % cols
-        row = tile.tile_id // cols
-        placeholder.setPos((cols - col - 1) + 0.5, 0, -((row + 1.0) * aspect - 0.5) * 2**0.5 - 0.1)
-        # placeholder.setHpr(0, 0, 0)
-        tile.node.instanceTo(placeholder)
 
     # use antialiasing
     base.render.setAntialias(AntialiasAttrib.MMultisample)
 
     # move camera
     lens = OrthographicLens()
-    lens.setFilmSize(cols, rows * aspect)
-    base.camNode.setLens(lens)
-    base.camera.set_pos(cols / 2, 8, -rows * 2**0.5 * aspect / 2 + 8)
-    base.camera.look_at(cols / 2, 0, -rows * 2**0.5 * aspect / 2)
 
     # TODO: How do the default camera controls work?
     base.disable_mouse()
@@ -65,5 +49,30 @@ if __name__ == '__main__':
     directional = base.render.attach_new_node(directional)
     base.render.set_light(directional)
 
-    base.graphicsEngine.renderFrame()
-    base.screenshot(namePrefix='data/tileset.png', defaultFilename=False)
+    for filename, tile_list in tile_lists.items():
+        cols = 8
+        rows = max(tile.tile_id for tile in tile_list.values()) // cols + 1
+
+        win = base.openWindow(type='offscreen', size=(cols * width, rows * height), makeCamera=True)
+
+        level = base.render.attachNewNode("level")
+
+        for tile in tile_list.values():
+            placeholder = level.attachNewNode("tile-placeholder")
+            col = tile.tile_id % cols
+            row = tile.tile_id // cols
+            placeholder.setPos((cols - col - 1) + 0.5, 0, -((row + 1.0) * aspect - 0.5) * 2**0.5 - 0.1)
+            tile.node.instanceTo(placeholder)
+            if isinstance(tile, Train):
+                train_node = tile.train.instanceTo(placeholder)
+
+        lens.setFilmSize(cols, rows * aspect)
+        base.camNode.setLens(lens)
+        base.camera.set_pos(cols / 2, 8, -rows * 2**0.5 * aspect / 2 + 8)
+        base.camera.look_at(cols / 2, 0, -rows * 2**0.5 * aspect / 2)
+
+        base.graphicsEngine.renderFrame()
+        base.screenshot(namePrefix=Path('data') / filename, defaultFilename=False)
+
+        level.removeNode()
+        base.closeWindow(win)

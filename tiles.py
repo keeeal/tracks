@@ -27,15 +27,6 @@ class Tile:
     """If clear is true, rails and other buildings can be placed on the tile"""
 
 
-    def instance_to(self, node: NodePath) -> None:
-        """Place the tile's model under the given node"""
-        self.node.instanceTo(node)
-
-    def register(self, node: NodePath, timeline: Timeline, tile_x: int, tile_y: int, get_track: Callable[[int, int], Optional["Track"]]) -> None:
-        """Register any neccesary callbacks with timeline."""
-        pass
-
-
 @dataclass(frozen=True)
 class Track(Tile):
     """A Track object represents a tile of railway track that the train can move on"""
@@ -66,36 +57,39 @@ class Train(Track):
     speed: float = field(compare=False)
     """Cost travelled by the train in 1 second"""
 
+
+@dataclass
+class TrainInstance:
+    tile: Train
+    node: NodePath
+    tile_x: int
+    tile_y: int
+
+    offset: float = 0.5
+    direction: int = 1
+    x: int = field(init=False)
+    y: int = field(init=False)
+
     def __post_init__(self):
-        self.train.reparentTo(self.node)
+        self.x = self.tile_x
+        self.y = self.tile_y
 
-    def instance_to(self, node: NodePath) -> None:
-        """Place the tile's model under the given node"""
-        self.node.copyTo(node)
-
-    def register(self, node: NodePath, timeline: Timeline, tile_x: int, tile_y: int, get_track: Callable[[int, int], Track]) -> None:
-        """Register any neccesary callbacks with timeline."""
-        offset: float = 0.5
-        direction: int = 1
-        x: int = tile_x
-        y: int = tile_y
-        node = node.getChild(0).getChild(1)
-
+    def update(self, old: float, new:float, track: Mapping[Tuple[int, int], Track]) -> List[Beat]:
         def update_position(x: int, y: int, offset: float, direction: int, old_pos: float, current_pos: float, current_tile: Track, beats: Optional[List[Beat]] = None) -> Tuple[int, int, float, int, Track, List[Beat]]:
             if beats is None:
                 beats = []
             if current_tile is None:
                 return x, y, offset, direction, None, beats
             if direction > 0:
-                beats += [Beat(beat - offset, self.tile_id) for beat in current_tile.beats if beat > old_pos + offset and beat <= current_pos + offset]
+                beats += [Beat(beat - offset, self.tile.tile_id) for beat in current_tile.beats if beat > old_pos + offset and beat <= current_pos + offset]
             else:
-                beats += [Beat(beat - offset, self.tile_id) for beat in current_tile.beats if current_tile.path[-1][0] - beat > old_pos + offset and current_tile.path[-1][0] - beat <= current_pos + offset]
+                beats += [Beat(beat - offset, self.tile.tile_id) for beat in current_tile.beats if current_tile.path[-1][0] - beat > old_pos + offset and current_tile.path[-1][0] - beat <= current_pos + offset]
             if current_pos + offset > current_tile.path[-1][0]:
                 if direction > 0:
                     del_fun = current_tile.dst
                 else:
                     del_fun = current_tile.src
-                next_tile = get_track(*del_fun(x, y))
+                next_tile = track.get(del_fun(x, y))
                 if next_tile is not None:
                     if next_tile.src == del_fun.reverse:
                         return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], 1, old_pos, current_pos, next_tile, beats)
@@ -103,46 +97,44 @@ class Train(Track):
                         return update_position(*del_fun(x, y), offset - current_tile.path[-1][0], -1, old_pos, current_pos, next_tile, beats)
             return x, y, offset, direction, current_tile, beats
 
-        def update(old: float, new: float) -> List[Beat]:
-            nonlocal offset, direction, x, y
-            if new + offset < 0:
-                offset = 0.5
-                x = tile_x
-                y = tile_y
-            old_pos = old * self.speed
-            current_pos = new * self.speed
-            current_tile = get_track(x, y)
-            x, y, offset, direction, current_tile, new_beats = update_position(x, y, offset, direction, old_pos, current_pos, current_tile)
-            current_pos = new * self.speed + offset
+        if new + self.offset < 0:
+            self.offset = 0.5
+            self.x = self.tile_x
+            self.y = self.tile_y
+        old_pos = old * self.tile.speed
+        current_pos = new * self.tile.speed
+        current_tile = track.get((self.x, self.y))
+        self.x, self.y, self.offset, self.direction, current_tile, new_beats = update_position(
+            self.x, self.y, self.offset, self.direction,
+            old_pos, current_pos, current_tile,
+        )
+        current_pos = new * self.tile.speed + self.offset
 
-            oldpos = node.getPos()
+        oldpos = self.node.getPos()
 
-            if direction > 0:
-                path = iter(current_tile.path)
-                dir_offset = 0
-            else:
-                path = iter(reversed(current_tile.path))
-                dir_offset = current_tile.path[-1][0]
-            prev_cost, (prev_x, prev_y) = next(path)
-            for cost, (node_x, node_y) in path:
-                cost = dir_offset + direction * cost
-                angle = np.degrees(np.arctan2(prev_y - node_y, prev_x - node_x))
-                if current_pos < cost:
-                    frac = (current_pos - prev_cost) / (cost - prev_cost)
-                    local_x = prev_x + (node_x - prev_x) * frac
-                    local_y = prev_y + (node_y - prev_y) * frac
-                    break
-                prev_x, prev_y, prev_cost = node_x, node_y, cost
-            else:
-                local_x, local_y = prev_x, prev_y
-            hex_x, hex_y = from_hex(x, y)
-            origin_x, origin_y = from_hex(tile_x, tile_y)
-            node.setPos(hex_x - origin_x + local_x, hex_y - origin_y + local_y, oldpos.z)
-            node.setHpr(60, 90, angle)
+        if self.direction > 0:
+            path = iter(current_tile.path)
+            dir_offset = 0
+        else:
+            path = iter(reversed(current_tile.path))
+            dir_offset = current_tile.path[-1][0]
+        prev_cost, (prev_x, prev_y) = next(path)
+        for cost, (node_x, node_y) in path:
+            cost = dir_offset + self.direction * cost
+            angle = np.degrees(np.arctan2(prev_y - node_y, prev_x - node_x))
+            if current_pos < cost:
+                frac = (current_pos - prev_cost) / (cost - prev_cost)
+                local_x = prev_x + (node_x - prev_x) * frac
+                local_y = prev_y + (node_y - prev_y) * frac
+                break
+            prev_x, prev_y, prev_cost = node_x, node_y, cost
+        else:
+            local_x, local_y = prev_x, prev_y
+        hex_x, hex_y = from_hex(self.x, self.y)
+        self.node.setPos(hex_x + local_x, hex_y + local_y, oldpos.z)
+        self.node.setHpr(60, 90, angle)
 
-            return new_beats
-
-        timeline.subscribe(update)
+        return new_beats
 
 
 def left(x: int, y: int) -> Tuple[int, int]:
@@ -212,300 +204,307 @@ def tiles(base: ShowBase) -> Mapping[int, Tile]:
         return dummy
 
     return {
-        tile.tile_id: tile
-        for tile in (
-            Tile(
-                tile_id=0,
-                node=load_model(tiles_dir / "building_cabin.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=1,
-                node=load_model(tiles_dir / "building_castle.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=2,
-                node=load_model(tiles_dir / "building_dock.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=3,
-                node=load_model(tiles_dir / "building_farm.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=4,
-                node=load_model(tiles_dir / "building_house.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=5,
-                node=load_model(tiles_dir / "building_market.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=6,
-                node=load_model(tiles_dir / "building_mill.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=7,
-                node=load_model(tiles_dir / "building_mine.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=8,
-                node=load_model(tiles_dir / "building_sheep.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=9,
-                node=load_model(tiles_dir / "building_smelter.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=10,
-                node=load_model(tiles_dir / "building_tower.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=11,
-                node=load_model(tiles_dir / "building_village.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=12,
-                node=load_model(tiles_dir / "building_wall.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=13,
-                node=load_model(tiles_dir / "building_water.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=14,
-                node=load_model(tiles_dir / "dirt.dae"),
-                height=0.1,
-                clear=True,
-            ),
-            Tile(
-                tile_id=15,
-                node=load_model(tiles_dir / "dirt_lumber.dae"),
-                height=0.1,
-                clear=False,
-            ),
-            Tile(
-                tile_id=16,
-                node=load_model(tiles_dir / "grass.dae"),
-                height=0.2,
-                clear=True,
-            ),
-            Tile(
-                tile_id=17,
-                node=load_model(tiles_dir / "grass_forest.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=18,
-                node=load_model(tiles_dir / "grass_hill.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=19,
-                node=load_model(tiles_dir / "river_corner.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=20,
-                node=load_model(tiles_dir / "river_cornerSharp.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=21,
-                node=load_model(tiles_dir / "river_crossing.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=22,
-                node=load_model(tiles_dir / "river_end.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=23,
-                node=load_model(tiles_dir / "river_intersectionA.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=24,
-                node=load_model(tiles_dir / "river_intersectionB.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=25,
-                node=load_model(tiles_dir / "river_intersectionC.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=26,
-                node=load_model(tiles_dir / "river_intersectionD.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=27,
-                node=load_model(tiles_dir / "river_intersectionE.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=28,
-                node=load_model(tiles_dir / "river_intersectionF.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=29,
-                node=load_model(tiles_dir / "river_intersectionG.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=30,
-                node=load_model(tiles_dir / "river_intersectionH.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=31,
-                node=load_model(tiles_dir / "river_start.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=32,
-                node=load_model(tiles_dir / "river_straight.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=33,
-                node=load_model(tiles_dir / "sand.dae"),
-                height=0.2,
-                clear=True,
-            ),
-            Tile(
-                tile_id=34,
-                node=load_model(tiles_dir / "sand_rocks.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=35,
-                node=load_model(tiles_dir / "stone.dae"),
-                height=0.2,
-                clear=True,
-            ),
-            Tile(
-                tile_id=36,
-                node=load_model(tiles_dir / "stone_hill.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=37,
-                node=load_model(tiles_dir / "stone_mountain.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=38,
-                node=load_model(tiles_dir / "stone_rocks.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=39,
-                node=load_model(tiles_dir / "water.dae"),
-                height=0.1,
-                clear=False,
-            ),
-            Tile(
-                tile_id=40,
-                node=load_model(tiles_dir / "water_island.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Tile(
-                tile_id=41,
-                node=load_model(tiles_dir / "water_rocks.dae"),
-                height=0.2,
-                clear=False,
-            ),
-            Track(
-                tile_id=42,
-                node=load_model(track_dir / "straight_1-2-3-4.dae"),
-                height=0.0,
-                clear=False,
-                removable=True,
-                src=left,
-                dst=right,
-                path=[(0, (0.5, 0)), (1, (-0.5, 0))],
-                beats=[0, 0.25, 0.5, 0.75],
-            ),
-            Track(
-                tile_id=43,
-                node=load_model(track_dir / "curved_1-2-3-4.dae"),
-                height=0.0,
-                clear=False,
-                removable=True,
-                src=left,
-                dst=right,
-                path=[
-                    (0/4, (.5, 0)),
-                    (1/4, (.276, -.029)),
-                    (2/4, (.067, -.116)),
-                    (3/4, (-.112, -.253)),
-                    (4/4, (-.25, -.433)),
-                ],
-                beats=[0, 0.25, 0.5, 0.75],
-            ),
-            Train(
-                tile_id=44,
-                node=wrap_model(track_dir / "straight_1-2-3-4.dae"),
-                train=load_model(train_dir / "train.dae"),
-                height=0.0,
-                clear=False,
-                removable=False,
-                src=left,
-                dst=right,
-                path=[(0, (0.5, 0)), (1, (-0.5, 0))],
-                speed=1.0,
-                beats=[],
-            ),
-        )
+        "tileset.png": {
+            tile.tile_id: tile
+            for tile in (
+                Tile(
+                    tile_id=0,
+                    node=load_model(tiles_dir / "building_cabin.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=1,
+                    node=load_model(tiles_dir / "building_castle.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=2,
+                    node=load_model(tiles_dir / "building_dock.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=3,
+                    node=load_model(tiles_dir / "building_farm.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=4,
+                    node=load_model(tiles_dir / "building_house.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=5,
+                    node=load_model(tiles_dir / "building_market.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=6,
+                    node=load_model(tiles_dir / "building_mill.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=7,
+                    node=load_model(tiles_dir / "building_mine.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=8,
+                    node=load_model(tiles_dir / "building_sheep.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=9,
+                    node=load_model(tiles_dir / "building_smelter.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=10,
+                    node=load_model(tiles_dir / "building_tower.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=11,
+                    node=load_model(tiles_dir / "building_village.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=12,
+                    node=load_model(tiles_dir / "building_wall.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=13,
+                    node=load_model(tiles_dir / "building_water.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=14,
+                    node=load_model(tiles_dir / "dirt.dae"),
+                    height=0.1,
+                    clear=True,
+                ),
+                Tile(
+                    tile_id=15,
+                    node=load_model(tiles_dir / "dirt_lumber.dae"),
+                    height=0.1,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=16,
+                    node=load_model(tiles_dir / "grass.dae"),
+                    height=0.2,
+                    clear=True,
+                ),
+                Tile(
+                    tile_id=17,
+                    node=load_model(tiles_dir / "grass_forest.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=18,
+                    node=load_model(tiles_dir / "grass_hill.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=19,
+                    node=load_model(tiles_dir / "river_corner.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=20,
+                    node=load_model(tiles_dir / "river_cornerSharp.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=21,
+                    node=load_model(tiles_dir / "river_crossing.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=22,
+                    node=load_model(tiles_dir / "river_end.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=23,
+                    node=load_model(tiles_dir / "river_intersectionA.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=24,
+                    node=load_model(tiles_dir / "river_intersectionB.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=25,
+                    node=load_model(tiles_dir / "river_intersectionC.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=26,
+                    node=load_model(tiles_dir / "river_intersectionD.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=27,
+                    node=load_model(tiles_dir / "river_intersectionE.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=28,
+                    node=load_model(tiles_dir / "river_intersectionF.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=29,
+                    node=load_model(tiles_dir / "river_intersectionG.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=30,
+                    node=load_model(tiles_dir / "river_intersectionH.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=31,
+                    node=load_model(tiles_dir / "river_start.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=32,
+                    node=load_model(tiles_dir / "river_straight.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=33,
+                    node=load_model(tiles_dir / "sand.dae"),
+                    height=0.2,
+                    clear=True,
+                ),
+                Tile(
+                    tile_id=34,
+                    node=load_model(tiles_dir / "sand_rocks.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=35,
+                    node=load_model(tiles_dir / "stone.dae"),
+                    height=0.2,
+                    clear=True,
+                ),
+                Tile(
+                    tile_id=36,
+                    node=load_model(tiles_dir / "stone_hill.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=37,
+                    node=load_model(tiles_dir / "stone_mountain.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=38,
+                    node=load_model(tiles_dir / "stone_rocks.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=39,
+                    node=load_model(tiles_dir / "water.dae"),
+                    height=0.1,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=40,
+                    node=load_model(tiles_dir / "water_island.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Tile(
+                    tile_id=41,
+                    node=load_model(tiles_dir / "water_rocks.dae"),
+                    height=0.2,
+                    clear=False,
+                ),
+                Train(
+                    tile_id=42,
+                    node=load_model(track_dir / "straight_1-2-3-4.dae"),
+                    train=load_model(train_dir / "train.dae"),
+                    height=0.0,
+                    clear=False,
+                    removable=False,
+                    src=left,
+                    dst=right,
+                    path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                    speed=1.0,
+                    beats=[],
+                ),
+            )
+        },
+        "tracks.png": {
+            tile.tile_id: tile
+            for tile in (
+                Track(
+                    tile_id=1,
+                    node=load_model(track_dir / "straight_1-2-3-4.dae"),
+                    height=0.0,
+                    clear=False,
+                    removable=True,
+                    src=left,
+                    dst=right,
+                    path=[(0, (0.5, 0)), (1, (-0.5, 0))],
+                    beats=[0, 0.25, 0.5, 0.75],
+                ),
+                Track(
+                    tile_id=2,
+                    node=load_model(track_dir / "curved_1-2-3-4.dae"),
+                    height=0.0,
+                    clear=False,
+                    removable=True,
+                    src=left,
+                    dst=right,
+                    path=[
+                        (0/4, (.5, 0)),
+                        (1/4, (.276, -.029)),
+                        (2/4, (.067, -.116)),
+                        (3/4, (-.112, -.253)),
+                        (4/4, (-.25, -.433)),
+                    ],
+                    beats=[0, 0.25, 0.5, 0.75],
+                ),
+            )
+        },
     }
