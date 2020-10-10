@@ -1,10 +1,10 @@
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 import itertools
+import math
 from pathlib import Path
 from typing import Mapping, Optional, Tuple, List, Callable, Sequence, Iterable
 
-import numpy as np
 from direct.showbase import ShowBase
 from panda3d.core import NodePath
 
@@ -127,7 +127,7 @@ class TrainInstance:
         prev_cost = dir_offset + self.direction * prev_cost
         for cost, (node_x, node_y) in path:
             cost = dir_offset + self.direction * cost
-            angle = np.degrees(np.arctan2(prev_y - node_y, prev_x - node_x))
+            angle = math.degrees(math.atan2(prev_y - node_y, prev_x - node_x))
             if current_pos < cost:
                 frac = (current_pos - prev_cost) / (cost - prev_cost)
                 local_x = prev_x + (node_x - prev_x) * frac
@@ -205,7 +205,7 @@ up_left.rotate_ccw = left
 #                         beats=[0, 0.25, 0.5, 0.75],
 #                    ),
 def rotations(nrot: int, id_offset: int, tiles: Sequence[Track]) -> Iterable[Track]:
-    c, s = np.cos(np.radians(-60)), np.sin(np.radians(-60))
+    c, s = math.cos(math.radians(-60)), math.sin(math.radians(-60))
     for tile in tiles:
         tile = replace(tile, rotate_ccw=tile.tile_id + id_offset, rotate_cw=tile.tile_id + (nrot - 1) * id_offset)
         yield tile

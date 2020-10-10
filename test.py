@@ -3,7 +3,6 @@ from panda3d.core import TransparencyAttrib
 
 import direct.directbase.DirectStart
 from direct.gui.OnscreenImage import OnscreenImage
-from direct.gui.DirectGui import *
 
 from panda3d.core import TextNode
 

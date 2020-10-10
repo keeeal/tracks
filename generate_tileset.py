@@ -1,8 +1,8 @@
 
 import os, sys, json
+import math
 from pathlib import Path
 
-import numpy as np
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import loadPrcFileData
 from panda3d.core import AntialiasAttrib
